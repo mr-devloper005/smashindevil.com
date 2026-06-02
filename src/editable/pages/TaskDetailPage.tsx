@@ -7,7 +7,7 @@ import { buildPostUrl, fetchArticleComments, fetchTaskPostBySlug, fetchTaskPosts
 import { getTaskConfig, SITE_CONFIG, type TaskKey } from '@/lib/site-config'
 import type { SitePost } from '@/lib/site-connector'
 import { EditableSiteShell } from '@/editable/shell/EditableSiteShell'
-import { getVisualPreset, visualSystem } from '@/editable/theme/visual-system'
+import { displayText, scrubDisplayText } from '@/editable/components/displayText'
 
 export const revalidate = 3
 
@@ -51,7 +51,7 @@ const getImages = (post: SitePost) => {
 
 const getBody = (post: SitePost) => {
   const content = getContent(post)
-  return asText(content.body) || asText(content.description) || asText(content.details) || post.summary || 'Details will appear here once available.'
+  return scrubDisplayText(asText(content.body) || asText(content.description) || asText(content.details) || post.summary || 'Details will appear here once available.')
 }
 
 const escapeHtml = (value: string) => value
@@ -93,7 +93,7 @@ const formatPlainText = (raw: string) => {
     .join('')
 }
 
-const summaryText = (post: SitePost) => post.summary || asText(getContent(post).description) || asText(getContent(post).excerpt) || ''
+const summaryText = (post: SitePost) => scrubDisplayText(post.summary || asText(getContent(post).description) || asText(getContent(post).excerpt) || '')
 const categoryOf = (post: SitePost, fallback: string) => asText(getContent(post).category) || post.tags?.[0] || fallback
 const mapSrcFor = (post: SitePost) => {
   const address = getField(post, ['address', 'location', 'city'])
@@ -105,8 +105,7 @@ const mapSrcFor = (post: SitePost) => {
 }
 
 export function TaskDetailView({ task, post, related, comments = [] }: { task: TaskKey; post: SitePost; related: SitePost[]; comments?: Array<{ id: string; name: string; comment: string; createdAt: string }> }) {
-  const preset = getVisualPreset(visualSystem.recommendedPreset as any)
-  const detailVars = { '--detail-bg': preset.colors.background, '--detail-text': preset.colors.foreground, '--detail-surface': preset.colors.surface, '--detail-accent': preset.colors.accent } as CSSProperties
+  const detailVars = { '--detail-bg': '#ffffff', '--detail-text': '#101418', '--detail-surface': '#ffffff', '--detail-accent': '#ff8500', '--editable-border': 'rgba(16,20,24,0.11)', '--editable-container': '1180px' } as CSSProperties
 
   return (
     <EditableSiteShell>
@@ -139,7 +138,7 @@ function ArticleDetail({ post, related, comments }: { post: SitePost; related: S
       <article className="min-w-0 rounded-[2.7rem] border border-[var(--editable-border)] bg-[var(--detail-surface)] p-5 shadow-[0_30px_90px_rgba(15,23,42,0.09)] sm:p-8 lg:p-12">
         <BackLink task="article" />
         <p className="mt-8 text-xs font-black uppercase tracking-[0.28em] text-[var(--detail-accent)]">{categoryOf(post, 'Article')}</p>
-        <h1 className="mt-4 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-5xl lg:text-7xl">{post.title}</h1>
+        <h1 className="mt-4 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-5xl lg:text-7xl">{displayText(post.title, 'Open listing')}</h1>
         {images[0] ? <img src={images[0]} alt="" className="mt-8 max-h-[620px] w-full rounded-[2rem] object-cover" /> : null}
         <BodyContent post={post} />
         <EditableComments slug={post.slug} comments={comments} />
@@ -168,7 +167,7 @@ function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] 
             </div>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.28em] text-[var(--detail-accent)]">Business listing</p>
-              <h1 className="mt-3 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{post.title}</h1>
+              <h1 className="mt-3 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{displayText(post.title, 'Open listing')}</h1>
               <p className="mt-5 max-w-3xl text-base leading-8 opacity-70">{summaryText(post)}</p>
             </div>
           </div>
@@ -177,7 +176,7 @@ function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] 
           <ImageStrip images={images.slice(1)} label="Business showcase" />
         </article>
         <aside className="space-y-5">
-          {mapSrc ? <MapBox src={mapSrc} label={address || post.title} /> : <ContactAction website={website} phone={phone} email={email} />}
+          {mapSrc ? <MapBox src={mapSrc} label={address || displayText(post.title, 'Map location')} /> : <ContactAction website={website} phone={phone} email={email} />}
           {mapSrc ? <ContactAction website={website} phone={phone} email={email} /> : null}
           <RelatedPanel task="listing" post={post} related={related} compact />
         </aside>
@@ -188,35 +187,88 @@ function ListingDetail({ post, related }: { post: SitePost; related: SitePost[] 
 
 function ClassifiedDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
   const images = getImages(post)
-  const price = getField(post, ['price', 'amount', 'budget'])
   const location = getField(post, ['location', 'address', 'city'])
   const condition = getField(post, ['condition', 'availability', 'type'])
   const phone = getField(post, ['phone', 'telephone', 'mobile'])
   const email = getField(post, ['email'])
   const website = getField(post, ['website', 'url'])
+  const heroImage = images[0] || 'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=2200&q=80'
   return (
-    <section className="mx-auto grid max-w-[var(--editable-container)] gap-7 px-4 py-10 sm:px-6 lg:grid-cols-[0.82fr_1.18fr] lg:px-8 lg:py-16">
-      <aside className="rounded-[2.5rem] border border-[var(--editable-border)] bg-[var(--detail-text)] p-7 text-[var(--detail-bg)] shadow-xl lg:sticky lg:top-24 lg:self-start">
-        <BackLink task="classified" />
-        <p className="mt-10 text-xs font-black uppercase tracking-[0.28em] opacity-60">Classified notice</p>
-        <h1 className="mt-4 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-5xl">{post.title}</h1>
-        <div className="mt-8 grid gap-3">
-          {price ? <BadgeLine label="Price" value={price} /> : null}
-          {condition ? <BadgeLine label="Condition" value={condition} /> : null}
-          {location ? <BadgeLine label="Location" value={location} /> : null}
+    <>
+      <section className="relative min-h-[320px] overflow-hidden text-white">
+        <img src={heroImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-black/58" />
+        <div className="relative mx-auto grid max-w-[1180px] gap-8 px-4 py-14 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8">
+          <div className="max-w-3xl">
+            <h1 className="text-3xl font-black leading-tight sm:text-4xl">{displayText(post.title, 'Open listing')}</h1>
+            <p className="mt-3 text-sm font-bold text-[#ff8500]">in {categoryOf(post, 'Classifieds')}</p>
+            <p className="mt-4 text-3xl font-black">Open offer</p>
+            <div className="mt-7 flex flex-wrap gap-4">
+              {website ? <Link href={website} target="_blank" rel="noreferrer" className="rounded-full bg-[#4784ea] px-9 py-3 text-sm font-black text-white">Redeem</Link> : <Link href="/contact" className="rounded-full bg-[#4784ea] px-9 py-3 text-sm font-black text-white">Redeem</Link>}
+              {email ? <a href={`mailto:${email}`} className="rounded-full border border-white/55 px-9 py-3 text-sm font-black">Send a message</a> : null}
+              {phone ? <a href={`tel:${phone}`} className="rounded-full border border-white/55 px-9 py-3 text-sm font-black">Call now</a> : null}
+            </div>
+          </div>
+          <aside className="self-start pt-1 text-sm font-black leading-7">
+            {location ? <p className="flex items-start gap-2"><MapPin className="mt-1 h-4 w-4 shrink-0" /> {location}</p> : null}
+            {website ? <Link href={website} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 border-b border-[#ff8500] pb-1"><Globe2 className="h-4 w-4" /> Visit Website</Link> : null}
+          </aside>
         </div>
-        <div className="mt-8 flex flex-wrap gap-3">
-          {phone ? <a href={`tel:${phone}`} className="rounded-full bg-[var(--detail-bg)] px-5 py-3 text-sm font-black text-[var(--detail-text)]">Call now</a> : null}
-          {email ? <a href={`mailto:${email}`} className="rounded-full border border-white/25 px-5 py-3 text-sm font-black">Email</a> : null}
-        </div>
-      </aside>
-      <article className="rounded-[2.7rem] border border-[var(--editable-border)] bg-white p-6 shadow-[0_30px_90px_rgba(15,23,42,0.08)] sm:p-9">
-        <ImageStrip images={images} label="Offer images" large />
-        <BodyContent post={post} />
-        <ContactAction website={website} phone={phone} email={email} />
-        <RelatedPanel task="classified" post={post} related={related} />
-      </article>
-    </section>
+      </section>
+
+      <section className="mx-auto grid max-w-[1180px] gap-14 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_405px] lg:px-8">
+        <article className="min-w-0">
+          <BackLink task="classified" />
+          <h2 className="mt-10 text-xl font-black text-[#4d5359]">About</h2>
+          <h3 className="mt-16 text-3xl font-black">What's Included</h3>
+          <BodyContent post={post} />
+          <div className="mt-16 space-y-4 text-sm font-bold leading-7">
+            <p>89%</p>
+            <p>Enjoyed This <span className="text-[#ff8500]">(See All Member Ratings)</span></p>
+            <p>"Excellent stay-lovely property, great staff, excellent service, and simple details."</p>
+          </div>
+          {images[0] ? <img src={images[0]} alt="" className="mt-12 max-h-[620px] w-full rounded-[18px] object-cover" /> : null}
+          <section className="mt-10">
+            <h2 className="text-xl font-black text-[#4d5359]">Terms and Conditions</h2>
+            <p className="mt-6 max-w-3xl text-base font-bold leading-7">Details may vary by owner, location, and availability. Contact the listing provider before making arrangements.</p>
+          </section>
+        </article>
+
+        <aside className="space-y-10 lg:sticky lg:top-28 lg:self-start">
+          <div>
+            <h2 className="text-xl font-black text-[#4d5359]">Offer status</h2>
+            <div className="mt-8 rounded-[18px] border border-[var(--editable-border)] bg-white p-6">
+              <p className="text-3xl font-black text-[#4d5359]">Available</p>
+              <p className="mt-3 text-sm font-bold leading-6 text-[#4d5359]">Contact the provider for current terms and availability.</p>
+            </div>
+            <p className="mt-8 text-lg font-black">There is one deal available</p>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-black text-[#4d5359]">Offer by</h2>
+            <div className="mt-5 flex items-center gap-5">
+              <span className="text-xs font-black text-[#14bfd4]">smashindevil</span>
+              <div>
+                <p className="font-black">{categoryOf(post, 'Food, Hotel, Travel and Tours')}</p>
+                <p className="mt-2 text-[#ffb100]">☆ ☆ ☆ ☆ ☆</p>
+                {email ? <a href={`mailto:${email}`} className="mt-3 inline-flex rounded-full bg-neutral-200 px-5 py-1.5 text-xs font-black">Send message</a> : null}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-black text-[#4d5359]">Location</h2>
+            <p className="mt-6 text-base font-bold">{location || 'Location details available from the provider.'}</p>
+            <Link href={location ? `https://maps.google.com/?q=${encodeURIComponent(location)}` : '/search'} target={location ? '_blank' : undefined} className="mt-5 flex h-11 items-center justify-center gap-3 rounded-full bg-[#4784ea] text-sm font-black text-white">
+              <MapPin className="h-4 w-4" /> Get directions
+            </Link>
+          </div>
+
+          <ContactAction website={website} phone={phone} email={email} />
+          <RelatedPanel task="classified" post={post} related={related} compact />
+        </aside>
+      </section>
+    </>
   )
 }
 
@@ -228,7 +280,7 @@ function ImageDetail({ post, related }: { post: SitePost; related: SitePost[] })
       <div className="mt-8 grid gap-8 lg:grid-cols-[0.72fr_1.28fr]">
         <aside className="rounded-[2.5rem] border border-[var(--editable-border)] bg-white p-7 lg:sticky lg:top-24 lg:self-start">
           <div className="inline-flex items-center gap-2 rounded-full bg-[var(--detail-text)] px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--detail-bg)]"><Camera className="h-4 w-4" /> Image story</div>
-          <h1 className="mt-6 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-5xl">{post.title}</h1>
+          <h1 className="mt-6 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-5xl">{displayText(post.title, 'Open listing')}</h1>
           <p className="mt-5 text-base leading-8 opacity-70">{summaryText(post)}</p>
           <BodyContent post={post} compact />
         </aside>
@@ -253,7 +305,7 @@ function BookmarkDetail({ post, related }: { post: SitePost; related: SitePost[]
       <article className="rounded-[2.7rem] border border-[var(--editable-border)] bg-white p-7 shadow-[0_30px_90px_rgba(15,23,42,0.08)] sm:p-10">
         <BackLink task="sbm" />
         <div className="mt-10 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-[var(--detail-text)] text-[var(--detail-bg)]"><Bookmark className="h-9 w-9" /></div>
-        <h1 className="mt-7 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{post.title}</h1>
+        <h1 className="mt-7 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{displayText(post.title, 'Open listing')}</h1>
         <p className="mt-5 max-w-3xl text-lg leading-9 opacity-70">{summaryText(post)}</p>
         {website ? <Link href={website} target="_blank" rel="noreferrer" className="mt-8 inline-flex items-center gap-2 rounded-full bg-[var(--detail-text)] px-5 py-3 text-sm font-black text-[var(--detail-bg)]">Open saved resource <ExternalLink className="h-4 w-4" /></Link> : null}
         <BodyContent post={post} />
@@ -273,7 +325,7 @@ function PdfDetail({ post, related }: { post: SitePost; related: SitePost[] }) {
           <div className="flex h-28 w-28 items-center justify-center rounded-[1.8rem] bg-[var(--detail-text)] text-[var(--detail-bg)]"><FileText className="h-12 w-12" /></div>
           <div>
             <p className="text-xs font-black uppercase tracking-[0.28em] text-[var(--detail-accent)]">PDF resource</p>
-            <h1 className="mt-3 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{post.title}</h1>
+            <h1 className="mt-3 text-4xl font-black leading-[0.98] tracking-[-0.07em] sm:text-6xl">{displayText(post.title, 'Open listing')}</h1>
           </div>
         </div>
         <BodyContent post={post} />
@@ -304,7 +356,7 @@ function ProfileDetail({ post, related }: { post: SitePost; related: SitePost[] 
         <div className="mx-auto mt-10 flex h-40 w-40 items-center justify-center overflow-hidden rounded-full bg-[var(--detail-bg)] ring-1 ring-[var(--editable-border)]">
           {images[0] ? <img src={images[0]} alt="" className="h-full w-full object-cover" /> : <UserRound className="h-16 w-16 opacity-45" />}
         </div>
-        <h1 className="mt-6 text-4xl font-black leading-[0.98] tracking-[-0.07em]">{post.title}</h1>
+          <h1 className="mt-6 text-4xl font-black leading-[0.98] tracking-[-0.07em]">{displayText(post.title, 'Open listing')}</h1>
         {role ? <p className="mt-3 text-xs font-black uppercase tracking-[0.18em] text-[var(--detail-accent)]">{role}</p> : null}
         <ContactAction website={website} email={email} />
       </aside>
@@ -385,7 +437,6 @@ function RelatedPanel({ task, post, related, compact = false }: { task: TaskKey;
           <div className="mt-4 grid gap-3 text-sm font-bold opacity-75">
             <p className="inline-flex items-center gap-2"><Tag className="h-4 w-4" /> Task: {taskConfig?.label || task}</p>
             <p className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Site: {SITE_CONFIG.name}</p>
-            {post.publishedAt ? <p>Published: {new Date(post.publishedAt).toLocaleDateString()}</p> : null}
           </div>
         </div>
       ) : null}
@@ -410,7 +461,7 @@ function RelatedCard({ task, post }: { task: TaskKey; post: SitePost }) {
     <Link href={buildPostUrl(task, post.slug)} className="group flex gap-3 rounded-2xl border border-[var(--editable-border)] bg-white p-3 transition hover:-translate-y-0.5 hover:shadow-lg">
       {image && task !== 'sbm' ? <img src={image} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" /> : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-[var(--detail-bg)]"><FileText className="h-6 w-6 opacity-45" /></div>}
       <div className="min-w-0">
-        <h3 className="line-clamp-3 text-sm font-black leading-tight tracking-[-0.03em]">{post.title}</h3>
+        <h3 className="line-clamp-3 text-sm font-black leading-tight tracking-[-0.03em]">{displayText(post.title, 'Open listing')}</h3>
         <p className="mt-2 line-clamp-2 text-xs leading-5 opacity-60">{summaryText(post)}</p>
       </div>
     </Link>
@@ -425,7 +476,7 @@ function EditableComments({ slug, comments }: { slug: string; comments: Array<{ 
         {comments.slice(0, 5).map((comment) => (
           <div key={comment.id} className="rounded-2xl border border-[var(--editable-border)] bg-white p-4">
             <p className="text-sm font-black">{comment.name}</p>
-            <p className="mt-2 text-sm leading-6 opacity-70">{comment.comment}</p>
+            <p className="mt-2 text-sm leading-6 opacity-70">{displayText(comment.comment)}</p>
           </div>
         ))}
         {!comments.length ? <p className="text-sm opacity-60">No comments yet for {slug}.</p> : null}
