@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { MessageSquare, Search } from 'lucide-react'
 import { EditableSiteShell } from '@/editable/shell/EditableSiteShell'
+import { displayText, scrubDisplayText } from '@/editable/components/displayText'
 
 type StoredComment = {
   id: string
@@ -17,20 +18,6 @@ type StoredComment = {
 
 const COMMENTS_PER_PAGE = 8
 const COMMENT_KEY_PREFIX = 'slot4:article-comments:'
-
-const formatDate = (value: string) => {
-  try {
-    return new Intl.DateTimeFormat('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(value))
-  } catch {
-    return 'Just now'
-  }
-}
 
 const readCommentsFromStorage = (): StoredComment[] => {
   const items: StoredComment[] = []
@@ -77,7 +64,7 @@ export default function CommentsPage() {
     return comments.filter((item) => {
       return [item.name, item.email, item.comment, item.articleTitle, item.articleSlug]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term))
+        .some((value) => scrubDisplayText(String(value)).toLowerCase().includes(term))
     })
   }, [comments, query])
 
@@ -133,7 +120,7 @@ export default function CommentsPage() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-semibold text-foreground">{item.name}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{formatDate(item.createdAt)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Saved comment</p>
                   </div>
                   {item.articleSlug ? (
                     <Link href={`/article/${item.articleSlug}`} className="text-sm text-primary underline-offset-4 hover:underline">
@@ -141,8 +128,8 @@ export default function CommentsPage() {
                     </Link>
                   ) : null}
                 </div>
-                {item.articleTitle ? <p className="mt-4 text-sm font-medium text-foreground">{item.articleTitle}</p> : null}
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">{item.comment}</p>
+                {item.articleTitle ? <p className="mt-4 text-sm font-medium text-foreground">{displayText(item.articleTitle)}</p> : null}
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">{displayText(item.comment)}</p>
               </article>
             ))}
           </section>
